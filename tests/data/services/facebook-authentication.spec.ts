@@ -3,11 +3,12 @@ import { mock, MockProxy } from 'jest-mock-extended'
 import { FacebookAuthenticationService } from '@/data/services'
 import { AuthenticationError } from '@/domain/errors'
 import { LoadFacebookUserApi } from '@/data/contracts/api'
-import { LoadUserAccountRepository } from '@/data/contracts/repos'
+import { LoadUserAccountRepository, CreateFacebookAccountRepository } from '@/data/contracts/repos'
 
 describe('FacebookAuthenticationService', () => {
   let loadFacebookUserApi: MockProxy<LoadFacebookUserApi>
   let loadUserAccountRepository: MockProxy<LoadUserAccountRepository>
+  let createFacebookAccountRepository: MockProxy<CreateFacebookAccountRepository>
   let sut: FacebookAuthenticationService
   const token = 'any_token'
 
@@ -21,8 +22,13 @@ describe('FacebookAuthenticationService', () => {
     })
 
     loadUserAccountRepository = mock()
+    createFacebookAccountRepository = mock()
 
-    sut = new FacebookAuthenticationService(loadFacebookUserApi, loadUserAccountRepository)
+    sut = new FacebookAuthenticationService(
+      loadFacebookUserApi,
+      loadUserAccountRepository,
+      createFacebookAccountRepository
+    )
   })
   it('should call load facebook user api with correct params', async () => {
     await sut.perform({ token })
@@ -43,5 +49,20 @@ describe('FacebookAuthenticationService', () => {
 
     expect(loadUserAccountRepository.load).toHaveBeenCalledWith({ email: 'any_facebook_email' })
     expect(loadUserAccountRepository.load).toHaveBeenCalledTimes(1)
+  })
+
+  it('should call createUserAccountRepository when load facebook user api returns undefined', async () => {
+    loadUserAccountRepository.load.mockResolvedValueOnce(undefined)
+
+    await sut.perform({ token })
+
+    expect(createFacebookAccountRepository.createFromFacebook).toHaveBeenCalledWith(
+      {
+        name: 'any_facebook_name',
+        email: 'any_facebook_email',
+        facebookId: 'any_facebook_id'
+      }
+    )
+    expect(createFacebookAccountRepository.createFromFacebook).toHaveBeenCalledTimes(1)
   })
 })
